@@ -298,11 +298,11 @@ $("checkBtn").addEventListener("click", () => {
       const parts = [];
       if (show8) {
         const e8 = rakahEstimate(frac, 8);
-        parts.push(`rak‘ah <strong>${e8.r}</strong> (8) <span class="muted">(range ${e8.low}–${e8.high})</span>`);
+        parts.push(`rak‘ah <strong>${e8.r}</strong> (8)`);
       }
       if (show20) {
         const e20 = rakahEstimate(frac, 20);
-        parts.push(`rak‘ah <strong>${e20.r}</strong> (20) <span class="muted">(range ${e20.low}–${e20.high})</span>`);
+        parts.push(`rak‘ah <strong>${e20.r}</strong> (20)`);
       }
 
       html += `<li>
