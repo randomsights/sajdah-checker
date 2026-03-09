@@ -5,18 +5,26 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Taraweeh Sajdah Checker</title>
   <style>
-    :root { --bd:#e5e7eb; --tx:#111827; --mut:#4b5563; --err:#b91c1c; }
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:24px; color:var(--tx); max-width:900px; }
-    h1 { margin:0 0 8px; font-size:28px; }
+    :root { --bd:#e5e7eb; --tx:#111827; --mut:#4b5563; --err:#b91c1c; --bg:#f8fafc; --card:#ffffff; }
+    body {
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      margin: 24px auto;
+      padding: 0 16px;
+      color: var(--tx);
+      max-width: 1100px;
+      background: var(--bg);
+    }
+    h1 { margin:0 0 8px; font-size: 30px; }
     .muted { color:var(--mut); font-size:14px; line-height:1.45; }
-    .card { border:1px solid var(--bd); border-radius:14px; padding:16px; margin-top:14px; }
+    .card { border:1px solid var(--bd); border-radius:14px; padding:18px; margin-top:14px; background: var(--card); box-shadow: 0 4px 18px rgba(15,23,42,0.06); }
     label { display:block; margin:10px 0 6px; font-weight:650; }
-    input, select, button { font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid #d1d5db; width:100%; box-sizing:border-box; }
-    button { width:auto; border:0; cursor:pointer; padding:12px 14px; }
+    input, select, button { font-size:16px; padding:10px 12px; border-radius:12px; border:1px solid #d1d5db; width:100%; box-sizing:border-box; background: #fff; }
+    button { width:auto; border:0; cursor:pointer; padding:12px 16px; background:#111827; color:#fff; }
+    button:hover { opacity: 0.92; }
     .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
     .inline { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .pill { border:1px solid var(--bd); padding:8px 10px; border-radius:999px; display:flex; gap:8px; align-items:center; }
+    .pill { border:1px solid var(--bd); padding:8px 10px; border-radius:999px; display:flex; gap:8px; align-items:center; background:#fff; }
     .pill input { width:auto; }
     .err { color:var(--err); font-weight:650; }
     ul { margin:10px 0 0 18px; }
@@ -24,14 +32,15 @@
     .small { font-size:12px; }
     .hr { height:1px; background:var(--bd); margin:12px 0; }
     .kpi { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .kpi .box { border:1px solid var(--bd); border-radius:12px; padding:10px 12px; }
+    .kpi .box { border:1px solid var(--bd); border-radius:12px; padding:10px 12px; background:#fff; }
   </style>
 </head>
 <body>
   <h1>Taraweeh Sajdah Checker</h1>
   <div class="muted">
     Toggle input type (Page range vs Surah:Ayah range). This checks whether a <em>sajdah</em> occurs in tonight’s recitation,
-    and estimates which rak‘ah it will land in (8 and/or 20) based on how far into the entered range it occurs (estimate).
+    and estimates which rak‘ah it will land in (8 and/or 20) based on how far into the entered range it occurs.
+    <strong>Now shows a best estimate + a small range (e.g., 13 (range 13–14)).</strong>
   </div>
 
   <div class="card">
@@ -65,7 +74,6 @@
           <option value="15" selected>15 sajdahs (includes 22:77)</option>
           <option value="14">14 sajdahs (exclude 22:77)</option>
         </select>
-        <div class="muted small">Some madhahib differ; this toggle only controls whether <code>22:77</code> is included.</div>
       </div>
       <div>
         <label for="estimateBasis">Estimate rak‘ah using</label>
@@ -74,7 +82,7 @@
           <option value="pages">Pages (uses page position in range)</option>
           <option value="ayahs">Ayahs (uses ayah position in range)</option>
         </select>
-        <div class="muted small">It’s always an estimate (ayah lengths/pace vary).</div>
+        <div class="muted small">Always an estimate (ayah lengths/pace vary).</div>
       </div>
     </div>
 
@@ -95,10 +103,6 @@
 
     <div class="hr"></div>
     <div id="out"></div>
-
-    <div class="muted small" style="margin-top:10px;">
-      Offline dataset: sajdah locations + page numbers (604-page mushaf) from AlQuran Cloud sajdah list. :contentReference[oaicite:1]{index=1}
-    </div>
   </div>
 
 <script>
@@ -150,30 +154,31 @@ function parsePageRange(str){
   return { p1,p2, lo,hi, pagesTonight:(hi-lo)+1 };
 }
 
-function rakahFromFrac(frac, totalRakats){
-  const f = Math.min(1, Math.max(0, frac));
-  let r = Math.ceil(f * totalRakats);
-  if(r<1) r=1;
-  if(r>totalRakats) r=totalRakats;
-  return r;
+/* ✅ NEW: best estimate (nearest) + range (floor..ceil) */
+function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
+function rakahEstimate(frac, totalRakats){
+  const f = clamp(frac, 0, 1);
+  const x = f * totalRakats;
+  const r = clamp(Math.round(x), 1, totalRakats);
+  const low = clamp(Math.floor(x), 1, totalRakats);
+  const high = clamp(Math.ceil(x), 1, totalRakats);
+  return { r, low, high };
 }
+
 function fmtPct(frac){ return `${Math.round(frac*100)}%`; }
 
 /**
- * Offline sajdah list with page numbers (604-page mushaf), as returned by AlQuran Cloud's sajdah endpoint.
- * Fields:
- *  - global: global ayah number (1..6236)
- *  - surah, ayah
- *  - page (1..604)
+ * Offline sajdah list with page numbers (604-page mushaf).
+ * (Edit here only if you ever want to swap the exact underlying list.)
  */
 const SAJDAH_15 = [
   { global:1160, surah:7,  ayah:206, page:176 },
   { global:1722, surah:13, ayah:15,  page:251 },
-  { global:1951, surah:16, ayah:50,  page:272 }, // some lists cite 16:49; this dataset marks 16:50
+  { global:1951, surah:16, ayah:50,  page:272 },
   { global:2138, surah:17, ayah:109, page:293 },
   { global:2308, surah:19, ayah:58,  page:309 },
   { global:2613, surah:22, ayah:18,  page:334 },
-  { global:2672, surah:22, ayah:77,  page:341 }, // “extra” one in the 15 list
+  { global:2672, surah:22, ayah:77,  page:341 },
   { global:2915, surah:25, ayah:60,  page:365 },
   { global:3185, surah:27, ayah:26,  page:379 },
   { global:3518, surah:32, ayah:15,  page:416 },
@@ -209,7 +214,6 @@ $("checkBtn").addEventListener("click", () => {
 
     if(mode === "page"){
       const { lo, hi, pagesTonight } = parsePageRange($("pageRange").value);
-
       const hits = sajdahs.filter(s => s.page>=lo && s.page<=hi).sort((a,b)=>a.page-b.page || a.global-b.global);
 
       if(hits.length===0){
@@ -230,12 +234,18 @@ $("checkBtn").addEventListener("click", () => {
       html += `<ul>`;
 
       for(const h of hits){
-        // within-page unknown offline; use mid-page
-        const posPages = (h.page - lo) + 0.5; // 0.5..pagesTonight-0.5
-        const frac = usePages ? (posPages / pagesTonight) : (posPages / pagesTonight); // same fallback
+        const posPages = (h.page - lo) + 0.5; // mid-page
+        const frac = usePages ? (posPages / pagesTonight) : (posPages / pagesTonight);
+
         const parts = [];
-        if(show8) parts.push(`rak‘ah <strong>${rakahFromFrac(frac,8)}</strong> (8)`);
-        if(show20) parts.push(`rak‘ah <strong>${rakahFromFrac(frac,20)}</strong> (20)`);
+        if (show8) {
+          const e8 = rakahEstimate(frac, 8);
+          parts.push(`rak‘ah <strong>${e8.r}</strong> (8) <span class="muted">(range ${e8.low}–${e8.high})</span>`);
+        }
+        if (show20) {
+          const e20 = rakahEstimate(frac, 20);
+          parts.push(`rak‘ah <strong>${e20.r}</strong> (20) <span class="muted">(range ${e20.low}–${e20.high})</span>`);
+        }
 
         html += `<li>
           <strong>${h.surah}:${h.ayah}</strong> <span class="muted">(page ${h.page})</span>
@@ -262,22 +272,39 @@ $("checkBtn").addEventListener("click", () => {
       return;
     }
 
-    const useAyahs = (basis==="auto" || basis==="ayahs");
     let html = `<div><strong>Yes — sajdah occurs in this range.</strong></div>`;
     html += `<div class="muted">Found ${hits.length} sajdah location(s). Rakah position is an estimate.</div>`;
     html += `<div class="kpi">
       <div class="box"><div class="muted small">Range length</div><div><strong>${totalAyahs}</strong> ayahs</div></div>
-      <div class="box"><div class="muted small">Basis</div><div><strong>${useAyahs ? "Ayah position" : "Ayah position"}</strong></div></div>
+      <div class="box"><div class="muted small">Basis</div><div><strong>${(basis==="pages") ? "Pages (approx)" : "Ayah position"}</strong></div></div>
     </div>`;
     html += `<ul>`;
 
+    // If user forces "pages" in surah-mode, approximate by page span of hits only (best offline option)
+    const usePageApprox = (basis==="pages");
+    const minPage = usePageApprox ? Math.min(...hits.map(h => h.page)) : null;
+    const maxPage = usePageApprox ? Math.max(...hits.map(h => h.page)) : null;
+    const totalPagesApprox = usePageApprox ? Math.max(1, (maxPage - minPage) + 1) : null;
+
     for(const h of hits){
-      const posAyah = (h.global - lo) + 0.5;
-      const frac = (posAyah / totalAyahs);
+      let frac;
+      if (usePageApprox) {
+        const posPages = (h.page - minPage) + 0.5;
+        frac = posPages / totalPagesApprox;
+      } else {
+        const posAyah = (h.global - lo) + 0.5;
+        frac = posAyah / totalAyahs;
+      }
 
       const parts = [];
-      if(show8) parts.push(`rak‘ah <strong>${rakahFromFrac(frac,8)}</strong> (8)`);
-      if(show20) parts.push(`rak‘ah <strong>${rakahFromFrac(frac,20)}</strong> (20)`);
+      if (show8) {
+        const e8 = rakahEstimate(frac, 8);
+        parts.push(`rak‘ah <strong>${e8.r}</strong> (8) <span class="muted">(range ${e8.low}–${e8.high})</span>`);
+      }
+      if (show20) {
+        const e20 = rakahEstimate(frac, 20);
+        parts.push(`rak‘ah <strong>${e20.r}</strong> (20) <span class="muted">(range ${e20.low}–${e20.high})</span>`);
+      }
 
       html += `<li>
         <strong>${h.surah}:${h.ayah}</strong> <span class="muted">(page ${h.page})</span>
