@@ -28,8 +28,19 @@
     }
 
     .wrap{ max-width: 980px; margin: 0 auto; }
-    h1{ margin:0 0 8px; font-size: 32px; letter-spacing:-0.3px; text-align:center; color: var(--green-900); }
-    .muted{ text-align:center; color: var(--mut); font-size:14px; line-height:1.45; }
+    h1{
+      margin:0 0 8px;
+      font-size: 32px;
+      letter-spacing:-0.3px;
+      text-align:center;
+      color: var(--green-900);
+    }
+    .muted{
+      text-align:center;
+      color: var(--mut);
+      font-size:14px;
+      line-height:1.45;
+    }
 
     .card{
       margin-top: 16px;
@@ -40,7 +51,13 @@
       box-shadow: var(--shadow);
     }
 
-    label{ display:block; margin:10px 0 6px; font-weight:650; color: var(--green-900); }
+    label{
+      display:block;
+      margin:10px 0 6px;
+      font-weight:650;
+      color: var(--green-900);
+    }
+
     input, select, button{
       font-size: 16px;
       padding: 10px 12px;
@@ -51,10 +68,16 @@
       background:#fff;
       color: var(--tx);
     }
-    input:focus, select:focus{ outline:none; border-color: var(--gold-600); box-shadow: var(--ring); }
+
+    input:focus, select:focus{
+      outline:none;
+      border-color: var(--gold-600);
+      box-shadow: var(--ring);
+    }
 
     .row{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .inline{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+
     .pill{
       border:1px solid var(--bd);
       border-radius: 999px;
@@ -82,11 +105,17 @@
     }
 
     .hr{ height:1px; background: var(--bd); margin: 12px 0; }
-    .results{ margin-top: 0; }
     .results .muted2{ color: var(--mut); }
     ul{ margin: 10px 0 0 18px; }
 
-    .err{ color:#7a0b0b; background:#ffe5e5; border:1px solid #ffc0c0; padding:10px 12px; border-radius:12px; font-weight:700; }
+    .err{
+      color:#7a0b0b;
+      background:#ffe5e5;
+      border:1px solid #ffc0c0;
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:700;
+    }
 
     @media (max-width: 820px){
       .row{ grid-template-columns: 1fr; }
@@ -98,7 +127,7 @@
   <div class="wrap">
     <h1>Taraweeh Sajdah Checker</h1>
     <div class="muted">
-      Choose input type (Page range vs Surah:Ayah range), then select whether to estimate for <strong>8</strong> or <strong>20</strong> rak‘ah.
+      Choose input type, then select whether to estimate for <strong>8</strong> or <strong>20</strong> rak‘ah.
     </div>
 
     <div class="card">
@@ -115,7 +144,7 @@
 
       <div id="surahInputs" style="margin-top:10px;">
         <label for="surahRange">Surah:Ayah range</label>
-        <input id="surahRange" placeholder="Example: 15:1-16:128" />
+        <input id="surahRange" placeholder="Example: 36:1-39:31" />
       </div>
 
       <div id="pageInputs" style="margin-top:10px; display:none;">
@@ -163,46 +192,14 @@ const VERSE_COUNTS = [
   29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,
   11,8,3,9,5,4,7,3,6,3,5,4,5,6
 ];
-function prefSums(arr){ const p=[0]; for(let i=0;i<arr.length;i++) p.push(p[i]+arr[i]); return p; }
-const PREF = prefSums(VERSE_COUNTS);
 
-function toGlobalIndex(surah, ayah){
-  if(!Number.isInteger(surah) || surah<1 || surah>114) throw new Error("Surah must be 1–114.");
-  const maxAyah = VERSE_COUNTS[surah-1];
-  if(!Number.isInteger(ayah) || ayah<1 || ayah>maxAyah) throw new Error(`Ayah must be 1–${maxAyah} for surah ${surah}.`);
-  return PREF[surah-1] + ayah;
-}
-
-function $(id){ return document.getElementById(id); }
-function render(html){ $("out").innerHTML = html; }
-function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function parseSurahRange(str){
-  const m = str.trim().match(/^(\d{1,3})\s*:\s*(\d{1,3})\s*-\s*(\d{1,3})\s*:\s*(\d{1,3})$/);
-  if(!m) throw new Error("Use format like 15:1-16:128");
-  const s1=parseInt(m[1],10), a1=parseInt(m[2],10), s2=parseInt(m[3],10), a2=parseInt(m[4],10);
-  const start=toGlobalIndex(s1,a1), end=toGlobalIndex(s2,a2);
-  return { s1,a1,s2,a2, lo:Math.min(start,end), hi:Math.max(start,end) };
-}
-
-function parsePageRange(str){
-  const t=str.trim();
-  if(!t) throw new Error("Enter a page range, e.g. 450-455 (or just 450).");
-  const m=t.match(/^(\d{1,3})(?:\s*-\s*(\d{1,3}))?$/);
-  if(!m) throw new Error("Use format like 450-455 (or just 450).");
-  let p1=parseInt(m[1],10);
-  let p2=m[2]?parseInt(m[2],10):p1;
-  if(p1<1||p1>604||p2<1||p2>604) throw new Error("Pages must be between 1 and 604.");
-  const lo=Math.min(p1,p2), hi=Math.max(p1,p2);
-  return { lo,hi, pagesTonight:(hi-lo)+1 };
-}
-
-function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
-function rakahBest(frac, totalRakats){
-  const f = clamp(frac, 0, 1);
-  return clamp(Math.round(f * totalRakats), 1, totalRakats);
-}
-function fmtPct(frac){ return `${Math.round(frac*100)}%`; }
+/* 1-based index + sentinel 605.
+   Approximate surah start pages for standard 604-page Madani mushaf. */
+const SURAH_START_PAGES = [
+  0,
+  1,2,50,77,106,128,151,177,187,208,221,235,249,255,262,267,282,293,305,312,322,332,342,350,359,367,377,385,396,404,411,415,418,428,434,440,446,453,458,467,477,483,489,496,499,502,507,511,515,518,520,523,526,528,531,534,537,542,545,549,551,553,554,556,558,560,562,564,566,568,570,572,574,575,577,578,580,582,583,585,586,587,587,589,590,591,591,592,593,594,595,595,596,596,597,597,598,598,599,599,600,600,601,601,601,602,602,602,603,603,603,604,604,604,
+  605
+];
 
 const SAJDAH_15 = [
   { global:1160, surah:7,  ayah:206, page:176 },
@@ -222,8 +219,58 @@ const SAJDAH_15 = [
   { global:6125, surah:96, ayah:19,  page:597 }
 ];
 
+function prefSums(arr){ const p=[0]; for(let i=0;i<arr.length;i++) p.push(p[i]+arr[i]); return p; }
+const PREF = prefSums(VERSE_COUNTS);
+
+function $(id){ return document.getElementById(id); }
+function render(html){ $("out").innerHTML = html; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toGlobalIndex(surah, ayah){
+  if(!Number.isInteger(surah) || surah < 1 || surah > 114) throw new Error("Surah must be 1–114.");
+  const maxAyah = VERSE_COUNTS[surah - 1];
+  if(!Number.isInteger(ayah) || ayah < 1 || ayah > maxAyah) throw new Error(`Ayah must be 1–${maxAyah} for surah ${surah}.`);
+  return PREF[surah - 1] + ayah;
+}
+
+function approxPageForRef(surah, ayah){
+  const start = SURAH_START_PAGES[surah];
+  const next = SURAH_START_PAGES[surah + 1];
+  const maxAyah = VERSE_COUNTS[surah - 1];
+  const span = Math.max(1, next - start);
+  const frac = (ayah - 1) / maxAyah;
+  return start + frac * span;
+}
+
+function parseSurahRange(str){
+  const m = str.trim().match(/^(\d{1,3})\s*:\s*(\d{1,3})\s*-\s*(\d{1,3})\s*:\s*(\d{1,3})$/);
+  if(!m) throw new Error("Use format like 36:1-39:31");
+  const s1 = parseInt(m[1],10), a1 = parseInt(m[2],10), s2 = parseInt(m[3],10), a2 = parseInt(m[4],10);
+  toGlobalIndex(s1,a1); toGlobalIndex(s2,a2); // validate
+  return { s1,a1,s2,a2 };
+}
+
+function parsePageRange(str){
+  const t = str.trim();
+  if(!t) throw new Error("Enter a page range, e.g. 450-455 (or just 450).");
+  const m = t.match(/^(\d{1,3})(?:\s*-\s*(\d{1,3}))?$/);
+  if(!m) throw new Error("Use format like 450-455 (or just 450).");
+  let p1 = parseInt(m[1],10);
+  let p2 = m[2] ? parseInt(m[2],10) : p1;
+  if(p1 < 1 || p1 > 604 || p2 < 1 || p2 > 604) throw new Error("Pages must be between 1 and 604.");
+  const lo = Math.min(p1,p2), hi = Math.max(p1,p2);
+  return { lo, hi, pagesTonight:(hi - lo) + 1 };
+}
+
+function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
+function rakahBest(frac, totalRakats){
+  const f = clamp(frac, 0, 1);
+  return clamp(Math.round(f * totalRakats), 1, totalRakats);
+}
+function fmtPct(frac){ return `${Math.round(frac * 100)}%`; }
+
 function getSajdahList(mode){
-  if(mode==="14") return SAJDAH_15.filter(x => !(x.surah===22 && x.ayah===77));
+  if(mode === "14") return SAJDAH_15.filter(x => !(x.surah === 22 && x.ayah === 77));
   return SAJDAH_15;
 }
 
@@ -234,8 +281,8 @@ function updatePills(){
 }
 function modeChanged(){
   const mode = document.querySelector('input[name="mode"]:checked').value;
-  $("surahInputs").style.display = (mode==="surah") ? "block" : "none";
-  $("pageInputs").style.display  = (mode==="page")  ? "block" : "none";
+  $("surahInputs").style.display = (mode === "surah") ? "block" : "none";
+  $("pageInputs").style.display = (mode === "page") ? "block" : "none";
   updatePills();
 }
 document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", modeChanged));
@@ -245,23 +292,18 @@ $("checkBtn").addEventListener("click", () => {
   try{
     const mode = document.querySelector('input[name="mode"]:checked').value;
     const listMode = $("sajdahList").value;
-
     const rakahMode = $("rakahMode").value;
-    if (!rakahMode) throw new Error("Please select 8 or 20 rak‘ah to estimate.");
+    if(!rakahMode) throw new Error("Please select 8 or 20 rak‘ah to estimate.");
     const totalRakats = parseInt(rakahMode, 10);
 
     const sajdahs = getSajdahList(listMode);
 
     if(mode === "page"){
       const { lo, hi, pagesTonight } = parsePageRange($("pageRange").value);
+      const hits = sajdahs.filter(s => s.page >= lo && s.page <= hi).sort((a,b)=>a.page-b.page || a.global-b.global);
 
-      const hits = sajdahs
-        .filter(s => s.page>=lo && s.page<=hi)
-        .sort((a,b)=>a.page-b.page || a.global-b.global);
-
-      if(hits.length===0){
-        render(`<div class="results"><strong>No sajdah</strong> in this page range ✅
-          <div class="muted2">Pages: <code>${lo}-${hi}</code> • ${pagesTonight} page(s)</div></div>`);
+      if(hits.length === 0){
+        render(`<div class="results"><strong>No sajdah</strong> in this page range ✅</div>`);
         return;
       }
 
@@ -272,41 +314,44 @@ $("checkBtn").addEventListener("click", () => {
         const posPages = (h.page - lo) + 0.5;
         const frac = posPages / pagesTonight;
         const rakah = rakahBest(frac, totalRakats);
-
         html += `<li><strong>${h.surah}:${h.ayah}</strong> <span class="muted2">(page ${h.page})</span>
           — about <strong>${fmtPct(frac)}</strong> into tonight
-          — rak‘ah <strong>${rakah}</strong> <span class="muted2">(${totalRakats})</span></li>`;
+          — rak‘ah <strong>${rakah}</strong></li>`;
       }
       html += `</ul></div>`;
       render(html);
       return;
     }
 
-    const { s1,a1,s2,a2, lo, hi } = parseSurahRange($("surahRange").value);
-    const totalAyahs = (hi - lo) + 1;
+    const { s1,a1,s2,a2 } = parseSurahRange($("surahRange").value);
+    const startPage = approxPageForRef(s1,a1);
+    const endPage = approxPageForRef(s2,a2);
+    const loPage = Math.min(startPage, endPage);
+    const hiPage = Math.max(startPage, endPage);
+    const pageSpan = Math.max(0.5, hiPage - loPage);
 
-    const hits = sajdahs
-      .filter(s => s.global>=lo && s.global<=hi)
-      .sort((a,b)=>a.global-b.global);
+    const startGlobal = toGlobalIndex(s1,a1);
+    const endGlobal = toGlobalIndex(s2,a2);
+    const loGlobal = Math.min(startGlobal, endGlobal);
+    const hiGlobal = Math.max(startGlobal, endGlobal);
 
-    if(hits.length===0){
-      render(`<div class="results"><strong>No sajdah</strong> in this range ✅
-        <div class="muted2">Range: <code>${esc(s1)}:${esc(a1)}-${esc(s2)}:${esc(a2)}</code> • ${totalAyahs} ayahs</div></div>`);
+    const hits = sajdahs.filter(s => s.global >= loGlobal && s.global <= hiGlobal).sort((a,b)=>a.global-b.global);
+
+    if(hits.length === 0){
+      render(`<div class="results"><strong>No sajdah</strong> in this range ✅</div>`);
       return;
     }
 
     let html = `<div class="results"><div><strong>Yes — sajdah occurs in this range.</strong></div>`;
-    html += `<div class="muted2">Estimate shown for <strong>${totalRakats}</strong> rak‘ah.</div>`;
-    html += `<div class="muted2">Range: <code>${esc(s1)}:${esc(a1)}-${esc(s2)}:${esc(a2)}</code></div><ul>`;
+    html += `<div class="muted2">Estimate shown for <strong>${totalRakats}</strong> rak‘ah.</div><ul>`;
 
     for(const h of hits){
-      const posAyah = (h.global - lo) + 0.5;
-      const frac = posAyah / totalAyahs;
+      const hitPage = approxPageForRef(h.surah, h.ayah);
+      const frac = clamp((hitPage - loPage) / pageSpan, 0, 1);
       const rakah = rakahBest(frac, totalRakats);
-
       html += `<li><strong>${h.surah}:${h.ayah}</strong> <span class="muted2">(page ${h.page})</span>
         — about <strong>${fmtPct(frac)}</strong> into tonight
-        — rak‘ah <strong>${rakah}</strong> <span class="muted2">(${totalRakats})</span></li>`;
+        — rak‘ah <strong>${rakah}</strong></li>`;
     }
 
     html += `</ul></div>`;
